@@ -1,0 +1,110 @@
+\documentclass{article}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+	language=Python,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}
+\title{Heuristics for Knight-based Game of Isolation}
+\author{Steven Bogacz}
+\date{June 2017}
+
+\begin{document}
+\maketitle
+\section{Introduction}
+\par The goal of this project was to implement the MiniMax and Alpha-Beta algorithms in python with a configurable heuristic scoring function, 
+which, once implemented, would enable the design and testing of different static analyses of the board state. My first attempt at the project focused too
+heavily on optimizations, since my hope was to write code suitable for both the tests and the eventual competition. This approach was ultimately too unwieldly, since 
+the degree of performance required for the competition makes it much harder to maintain clear and well-defined abstractions: consider game opening, or end game playbooks\ldots are they heuristics, or part of the decision making algorithm? It became clear that the project code should be centered around the algorithms, and clear heuristics, agnostic of the phase of the game. 
+
+I produced three separate heuristic functions, and ran them against a modified version of tournament.py such that each agent plays 20 games against his opponent instead of just 5, simply to get a larger sample size for analyzing performance.
+
+\section{Custom Score}
+The first heuristic takes from both the improved and center heuristic algorithms. It subtracts the distance from the
+center from the normal "improved" metric, so as to penalize moves that are farther from the center, following the rationale 
+that the center may have more moves around it in the future compared to the edges.
+
+The code for this heuristic can be found below:
+\begin{lstlisting}
+    # prioritize own moves - opponent moves, and have a term for the
+    # distance from the center
+    own_moves = len(game.get_legal_moves(player))
+    opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
+    w, h = game.width / 2., game.height / 2.
+    y, x = game.get_player_location(player)
+    dist = math.sqrt(float((h - y)**2 + (w - x)**2))
+    return float(own_moves - opp_moves - dist)
+\end{lstlisting}
+
+Over two separate runs, this heuristic did outperform the Alpha-Beta Improved agent, both in head to head games, as well
+as on average against the other test agents.
+ 
+\section{Custom Score \#2}
+The second heuristic is very similar to the first, but it gives a greater weight to the number of moves available,
+to try and avoid giving a greater score to moves near the center with several fewer moves available remaining.
+
+The code is below:
+\begin{lstlisting}
+    # prioritize own moves - opponent moves, and have a term for the
+    # distance from the center
+    own_moves = len(game.get_legal_moves(player))
+    opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
+    w, h = game.width / 2., game.height / 2.
+    y, x = game.get_player_location(player)
+    dist = math.sqrt(float((h - y)**2 + (w - x)**2))
+    return float((own_moves - opp_moves)**2 - dist)
+\end{lstlisting}
+
+Over two separate runs, this heuristic did outperform the Alpha-Beta Improved agent, both in head to head games, as well
+as on average against the other test agents.
+\section{Custom Score \#3}
+
+\begin{lstlisting}
+    # stay near the opposite player while maximizing moves
+    w, h = game.get_player_location(game.get_opponent(player))
+    y, x = game.get_player_location(player)
+    dist = math.sqrt(float((h - y)**2 + (w - x)**2))
+    return dist + \
+        float(len(game.get_legal_moves(player)))
+\end{lstlisting}
+
+Over two separate runs, this heuristic did outperform the Alpha-Beta Improved agent, both in head to head games, as well
+as on average against the other test agents.
+\section{Raw Tournament Results}
+The raw tournament results can be found below:
+\begin{verbatim}
+                        *************************                         
+                             Playing Matches                              
+                        *************************                         
+
+ Match #   Opponent    AB_Improved   AB_Custom   AB_Custom_2  AB_Custom_3 
+                        Won | Lost   Won | Lost   Won | Lost   Won | Lost 
+    1       Random      39  |   1    40  |   0    38  |   2    38  |   2  
+    2       MM_Open     26  |  14    26  |  14    24  |  16    30  |  10  
+    3      MM_Center    35  |   5    37  |   3    32  |   8    35  |   5  
+    4     MM_Improved   22  |  18    30  |  10    27  |  13    30  |  10  
+    5       AB_Open     20  |  20    21  |  19    23  |  17    24  |  16  
+    6      AB_Center    18  |  22    15  |  25    20  |  20    20  |  20  
+    7     AB_Improved   19  |  21    20  |  20    22  |  18    22  |  18  
+--------------------------------------------------------------------------
+           Win Rate:      63.9%        67.5%        66.4%        71.1%  
+\end{verbatim}
+\end{document}
